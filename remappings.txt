@@ -1,0 +1,10 @@
+ds-test/=lib/optimism/packages/contracts-bedrock/lib/solmate/lib/ds-test/src/
+forge-std/=lib/forge-std/src/
+kontrol-cheatcodes/=lib/optimism/packages/contracts-bedrock/lib/kontrol-cheatcodes/src/
+lib-keccak/=lib/optimism/packages/contracts-bedrock/lib/lib-keccak/contracts/
+openzeppelin-contracts-upgradeable/=lib/optimism/packages/contracts-bedrock/lib/openzeppelin-contracts-upgradeable/
+openzeppelin-contracts/=lib/optimism/packages/contracts-bedrock/lib/openzeppelin-contracts/
+@eth-optimism/contracts-bedrock/=lib/optimism/packages/contracts-bedrock
+safe-contracts/=lib/optimism/packages/contracts-bedrock/lib/safe-contracts/contracts/
+solady/=lib/optimism/packages/contracts-bedrock/lib/solady/
+solmate/=lib/optimism/packages/contracts-bedrock/lib/solmate/src/

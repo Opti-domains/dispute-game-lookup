@@ -4,20 +4,67 @@ pragma solidity ^0.8.0;
 import "./interfaces/optimism/IFaultDisputeGame.sol";
 import "./interfaces/IOptimismPortalOutputRoot.sol";
 
+/**
+ * @title DisputeGameLookup
+ * @dev Library for querying dispute games in the Optimism portal.
+ */
 library DisputeGameLookup {
+    /**
+     * @dev Emitted when the game type does not match the expected type.
+     * @param disputeGameIndex Index of the dispute game.
+     * @param expected Expected game type.
+     * @param actual Actual game type.
+     */
     error GameTypeMismatch(
         uint256 disputeGameIndex,
         GameType expected,
         GameType actual
     );
+
+    /**
+     * @dev Emitted when the dispute game is already challenged.
+     * @param disputeGameIndex Index of the dispute game.
+     */
     error GameChallenged(uint256 disputeGameIndex);
+
+    /**
+     * @dev Emitted when the dispute game is too early to be challenged.
+     * @param disputeGameIndex Index of the dispute game.
+     * @param age Current age of the game.
+     * @param minAge Minimum age required to challenge the game.
+     */
     error GameTooEarly(uint256 disputeGameIndex, uint256 age, uint256 minAge);
+
+    /**
+     * @dev Emitted when the dispute game is expired.
+     * @param disputeGameIndex Index of the dispute game.
+     * @param age Current age of the game.
+     * @param maxAge Maximum age allowed to challenge the game.
+     */
     error GameExpired(uint256 disputeGameIndex, uint256 age, uint256 maxAge);
+
+    /**
+     * @dev Emitted when no dispute game is found within the specified minimum age.
+     * @param minAge Minimum age required.
+     */
     error GameNotFound(uint256 minAge);
+
+    /**
+     * @dev Emitted when the dispute game is not enabled.
+     */
     error DisputeGameNotEnabled();
 
-    function _disputeGameFactory(IOptimismPortalOutputRoot optimismPortal) internal view returns(IDisputeGameFactory) {
-        try optimismPortal.disputeGameFactory() returns (IDisputeGameFactory factory) {
+    /**
+     * @notice Internal function to get the dispute game factory from the optimism portal.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @return factory The dispute game factory.
+     */
+    function _disputeGameFactory(
+        IOptimismPortalOutputRoot optimismPortal
+    ) internal view returns (IDisputeGameFactory) {
+        try optimismPortal.disputeGameFactory() returns (
+            IDisputeGameFactory factory
+        ) {
             if (address(factory) == address(0)) {
                 revert DisputeGameNotEnabled();
             }
@@ -28,6 +75,17 @@ library DisputeGameLookup {
         }
     }
 
+    /**
+     * @notice Retrieves the dispute game at the specified index.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param index The index of the dispute game.
+     * @param minAge The minimum age required to challenge the game.
+     * @param maxAge The maximum age allowed to challenge the game.
+     * @return outputRoot The root claim of the dispute game.
+     * @return gameType The type of the dispute game.
+     * @return gameCreationTime The creation time of the dispute game.
+     * @return proxy The dispute game proxy.
+     */
     function getDisputeGame(
         IOptimismPortalOutputRoot optimismPortal,
         uint256 index,
@@ -43,7 +101,9 @@ library DisputeGameLookup {
             IDisputeGame proxy
         )
     {
-        IDisputeGameFactory disputeGameFactory = _disputeGameFactory(optimismPortal);
+        IDisputeGameFactory disputeGameFactory = _disputeGameFactory(
+            optimismPortal
+        );
 
         // Get dispute game at index
         Timestamp gameCreationTimeRaw;
@@ -79,6 +139,17 @@ library DisputeGameLookup {
         }
     }
 
+    /**
+     * @notice Retrieves the dispute game that is respected for L2 withdrawal.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param index The index of the dispute game.
+     * @param minAge The minimum age required to challenge the game.
+     * @param maxAge The maximum age allowed to challenge the game.
+     * @return outputRoot The root claim of the dispute game.
+     * @return gameType The type of the respected dispute game.
+     * @return gameCreationTime The creation time of the dispute game.
+     * @return proxy The dispute game proxy.
+     */
     function getRespectedDisputeGame(
         IOptimismPortalOutputRoot optimismPortal,
         uint256 index,
@@ -111,6 +182,13 @@ library DisputeGameLookup {
         }
     }
 
+    /**
+     * @notice Finds the search bound for binary search based on the maximum timestamp.
+     * @param disputeGameFactory The dispute game factory.
+     * @param maxTimestamp The maximum timestamp to search.
+     * @return lo The lower bound index.
+     * @return hi The upper bound index.
+     */
     function _findSearchBound(
         IDisputeGameFactory disputeGameFactory,
         uint256 maxTimestamp
@@ -149,6 +227,12 @@ library DisputeGameLookup {
         }
     }
 
+    /**
+     * @notice Finds the start index for searching based on the maximum timestamp.
+     * @param disputeGameFactory The dispute game factory.
+     * @param maxTimestamp The maximum timestamp to search.
+     * @return The start index.
+     */
     function _findSearchStart(
         IDisputeGameFactory disputeGameFactory,
         uint256 maxTimestamp
@@ -176,6 +260,18 @@ library DisputeGameLookup {
         return hi;
     }
 
+    /**
+     * @notice Retrieves the latest dispute game of a specific type.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param gameType The type of the dispute game.
+     * @param minAge The minimum age required to challenge the game.
+     * @param maxAge The maximum age allowed to challenge the game.
+     * @return disputeGameIndex The index of the dispute game.
+     * @return outputRoot The root claim of the dispute game.
+     * @return gameCreationTime The creation time of the dispute game.
+     * @return blockNumber The block number of the L2 state.
+     * @return proxy The dispute game proxy.
+     */
     function getLatestDisputeGame(
         IOptimismPortalOutputRoot optimismPortal,
         GameType gameType,
@@ -194,7 +290,9 @@ library DisputeGameLookup {
     {
         uint256 maxTimestamp = block.timestamp - minAge;
 
-        IDisputeGameFactory disputeGameFactory = _disputeGameFactory(optimismPortal);
+        IDisputeGameFactory disputeGameFactory = _disputeGameFactory(
+            optimismPortal
+        );
 
         uint256 start = _findSearchStart(disputeGameFactory, maxTimestamp);
 
@@ -210,7 +308,11 @@ library DisputeGameLookup {
         gameCreationTime = games[0].timestamp.raw();
 
         if (maxAge > 0 && gameCreationTime < block.timestamp - maxAge) {
-            revert GameExpired(disputeGameIndex, block.timestamp - maxAge, maxAge);
+            revert GameExpired(
+                disputeGameIndex,
+                block.timestamp - maxAge,
+                maxAge
+            );
         }
 
         (, , proxy) = disputeGameFactory.gameAtIndex(disputeGameIndex);
@@ -222,6 +324,18 @@ library DisputeGameLookup {
         } catch {}
     }
 
+    /**
+     * @notice Retrieves the latest respected dispute game for L2 withdrawal.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param minAge The minimum age required to challenge the game.
+     * @param maxAge The maximum age allowed to challenge the game.
+     * @return disputeGameIndex The index of the dispute game.
+     * @return outputRoot The root claim of the dispute game.
+     * @return gameCreationTime The creation time of the dispute game.
+     * @return blockNumber The block number of the L2 state.
+     * @return proxy The dispute game proxy.
+     * @return gameType The type of the respected dispute game.
+     */
     function getLatestRespectedDisputeGame(
         IOptimismPortalOutputRoot optimismPortal,
         uint256 minAge,

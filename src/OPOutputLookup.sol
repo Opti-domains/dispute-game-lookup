@@ -20,11 +20,26 @@ struct OPProvableBlock {
     bytes32 outputRoot;
 }
 
+/**
+ * @title OPOutputLookup
+ * @dev Contract for querying dispute games and L2 output oracles in the Optimism portal.
+ */
 contract OPOutputLookup {
     // ========================
     // Dispute Game
     // ========================
 
+    /**
+     * @notice Retrieves the dispute game at the specified index.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param index The index of the dispute game.
+     * @param minAge The minimum age required for the game.
+     * @param maxAge The maximum age allowed for the game.
+     * @return outputRoot The root claim of the dispute game.
+     * @return gameType The type of the dispute game.
+     * @return gameCreationTime The creation time of the dispute game.
+     * @return proxy The dispute game proxy.
+     */
     function getDisputeGame(
         IOptimismPortalOutputRoot optimismPortal,
         uint256 index,
@@ -49,6 +64,17 @@ contract OPOutputLookup {
             );
     }
 
+    /**
+     * @notice Retrieves the respected dispute game at the specified index.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param index The index of the dispute game.
+     * @param minAge The minimum age required for the game.
+     * @param maxAge The maximum age allowed for the game.
+     * @return outputRoot The root claim of the dispute game.
+     * @return gameType The type of the respected dispute game.
+     * @return gameCreationTime The creation time of the dispute game.
+     * @return proxy The dispute game proxy.
+     */
     function getRespectedDisputeGame(
         IOptimismPortalOutputRoot optimismPortal,
         uint256 index,
@@ -73,6 +99,18 @@ contract OPOutputLookup {
             );
     }
 
+    /**
+     * @notice Retrieves the latest dispute game of a specific type.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param gameType The type of the dispute game.
+     * @param minAge The minimum age required for the game.
+     * @param maxAge The maximum age allowed for the game.
+     * @return disputeGameIndex The index of the dispute game.
+     * @return outputRoot The root claim of the dispute game.
+     * @return gameCreationTime The creation time of the dispute game.
+     * @return blockNumber The block number of the L2 state.
+     * @return proxy The dispute game proxy.
+     */
     function getLatestDisputeGame(
         IOptimismPortalOutputRoot optimismPortal,
         GameType gameType,
@@ -98,6 +136,18 @@ contract OPOutputLookup {
             );
     }
 
+    /**
+     * @notice Retrieves the latest respected dispute game for L2 withdrawal.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param minAge The minimum age required for the game.
+     * @param maxAge The maximum age allowed for the game.
+     * @return disputeGameIndex The index of the dispute game.
+     * @return outputRoot The root claim of the dispute game.
+     * @return gameCreationTime The creation time of the dispute game.
+     * @return blockNumber The block number of the L2 state.
+     * @return proxy The dispute game proxy.
+     * @return gameType The type of the respected dispute game.
+     */
     function getLatestRespectedDisputeGame(
         IOptimismPortalOutputRoot optimismPortal,
         uint256 minAge,
@@ -126,6 +176,14 @@ contract OPOutputLookup {
     // L2 Output Oracle
     // ========================
 
+    /**
+     * @notice Retrieves the latest L2 output that meets the specified age criteria.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param minAge The minimum age required for the output.
+     * @param maxAge The maximum age allowed for the output.
+     * @return index The index of the latest L2 output.
+     * @return The latest L2 output proposal.
+     */
     function getLatestL2Output(
         IOptimismPortalOutputRoot optimismPortal,
         uint256 minAge,
@@ -139,6 +197,14 @@ contract OPOutputLookup {
             );
     }
 
+    /**
+     * @notice Retrieves the L2 output at the specified index that meets the specified age criteria.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param index The index of the L2 output.
+     * @param minAge The minimum age required for the output.
+     * @param maxAge The maximum age allowed for the output.
+     * @return The L2 output proposal.
+     */
     function getL2Output(
         IOptimismPortalOutputRoot optimismPortal,
         uint256 index,
@@ -158,8 +224,16 @@ contract OPOutputLookup {
     // ENS Gateway
     // ========================
 
+    /**
+     * @dev Emitted when the proof type is unknown.
+     */
     error UnknownProofType();
 
+    /**
+     * @notice Retrieves the proof type used by the Optimism portal.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @return The proof type used by the Optimism portal.
+     */
     function getProofType(
         IOptimismPortalOutputRoot optimismPortal
     ) public view returns (OPWitnessProofType) {
@@ -180,6 +254,13 @@ contract OPOutputLookup {
         revert UnknownProofType();
     }
 
+    /**
+     * @notice Retrieves the OP provable block that meets the specified age criteria.
+     * @param optimismPortal The Optimism portal output root contract.
+     * @param minAge The minimum age required for the proof.
+     * @param maxAge The maximum age allowed for the proof.
+     * @return result The OP provable block for ENS OP Gateway.
+     */
     function getOPProvableBlock(
         IOptimismPortalOutputRoot optimismPortal,
         uint256 minAge,

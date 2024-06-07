@@ -66,7 +66,7 @@ library L2OutputOracleLookup {
         IOptimismPortalOutputRoot optimismPortal,
         uint256 minAge,
         uint256 maxAge
-    ) public view returns (uint256 index, Types.OutputProposal memory) {
+    ) internal view returns (uint256 index, Types.OutputProposal memory) {
         IL2OutputOracle oracle = _l2OutputOracle(optimismPortal);
         uint256 length = oracle.latestOutputIndex();
 
@@ -110,7 +110,7 @@ library L2OutputOracleLookup {
         uint256 index,
         uint256 minAge,
         uint256 maxAge
-    ) public view returns (Types.OutputProposal memory) {
+    ) internal view returns (Types.OutputProposal memory) {
         IL2OutputOracle oracle = _l2OutputOracle(optimismPortal);
         Types.OutputProposal memory output = oracle.getL2Output(index);
 

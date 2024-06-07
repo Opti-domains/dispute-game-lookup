@@ -92,7 +92,7 @@ library DisputeGameLookup {
         uint256 minAge,
         uint256 maxAge
     )
-        public
+        internal
         view
         returns (
             bytes32 outputRoot,
@@ -156,7 +156,7 @@ library DisputeGameLookup {
         uint256 minAge,
         uint256 maxAge
     )
-        public
+        internal
         view
         returns (
             bytes32 outputRoot,
@@ -278,7 +278,7 @@ library DisputeGameLookup {
         uint256 minAge,
         uint256 maxAge
     )
-        public
+        internal
         view
         returns (
             uint256 disputeGameIndex,
@@ -341,7 +341,7 @@ library DisputeGameLookup {
         uint256 minAge,
         uint256 maxAge
     )
-        public
+        internal
         view
         returns (
             uint256 disputeGameIndex,

@@ -4,6 +4,25 @@ pragma solidity ^0.8.0;
 import "./interfaces/optimism/IFaultDisputeGame.sol";
 import {IOptimismPortalOutputRoot, IDisputeGameFactory} from "./interfaces/IOptimismPortalOutputRoot.sol";
 
+interface IChallengingDisputeGame is IFaultDisputeGame {
+    function claimData(
+        uint256 index
+    )
+        external
+        view
+        returns (
+            uint32 parentIndex,
+            address counteredBy,
+            address claimant,
+            uint128 bond,
+            Claim claim,
+            Position position,
+            Clock clock
+        );
+
+    function claimDataLen() external view returns (uint256 len_);
+}
+
 /**
  * @title DisputeGameLookup
  * @dev Library for querying dispute games in the Optimism portal.
@@ -22,10 +41,10 @@ library DisputeGameLookup {
     );
 
     /**
-     * @dev Emitted when the dispute game is already challenged.
+     * @dev Emitted when the dispute game is already challenged or challenging.
      * @param disputeGameIndex Index of the dispute game.
      */
-    error GameChallenged(uint256 disputeGameIndex);
+    error GameInvalid(uint256 disputeGameIndex);
 
     /**
      * @dev Emitted when the dispute game is too early to be challenged.
@@ -73,6 +92,40 @@ library DisputeGameLookup {
         } catch {
             revert DisputeGameNotEnabled();
         }
+    }
+
+    /**
+     * @notice Internal function to check if the dispute game is challenging.
+     * @param proxy Dispute Game Proxy to check
+     * @return invalid Is the game being challenged?
+     */
+    function _isGameChallenging(
+        IChallengingDisputeGame proxy
+    ) internal view returns (bool) {
+        // If the game is finalized, we ignore the challenging status
+        if (proxy.status() == GameStatus.DEFENDER_WINS) return false;
+
+        // If claimData length is greater than 1, the game is challenging
+        if (proxy.claimDataLen() > 1) {
+            return true;
+        }
+
+        // If root claim is countered by someone then the game is challenging
+        (, address counteredBy, , , , , ) = proxy.claimData(0);
+        if (counteredBy != address(0)) return true;
+
+        return false;
+    }
+
+    /**
+     * @notice Internal function to check if the dispute game has already been challenged or is challenging.
+     * @param proxy Dispute Game Proxy to check
+     * @return invalid Has the game already been challenged or is it still challenging?
+     */
+    function _isGameInvalid(IDisputeGame proxy) internal view returns (bool) {
+        return
+            proxy.status() == GameStatus.CHALLENGER_WINS ||
+            _isGameChallenging(IChallengingDisputeGame(address(proxy)));
     }
 
     /**
@@ -133,9 +186,9 @@ library DisputeGameLookup {
             );
         }
 
-        // Revert if the game is challenged
-        if (proxy.status() == GameStatus.CHALLENGER_WINS) {
-            revert GameChallenged(index);
+        // Revert if the game is challenged or challenging
+        if (_isGameInvalid(proxy)) {
+            revert GameInvalid(index);
         }
     }
 
@@ -183,51 +236,6 @@ library DisputeGameLookup {
     }
 
     /**
-     * @notice Finds the search bound for binary search based on the maximum timestamp.
-     * @param disputeGameFactory The dispute game factory.
-     * @param maxTimestamp The maximum timestamp to search.
-     * @return lo The lower bound index.
-     * @return hi The upper bound index.
-     */
-    function _findSearchBound(
-        IDisputeGameFactory disputeGameFactory,
-        uint256 maxTimestamp
-    ) internal view returns (uint256 lo, uint256 hi) {
-        uint256 gameCount = disputeGameFactory.gameCount();
-
-        // Find binary search bound
-        uint256 window = 1;
-        while (window <= gameCount) {
-            (, Timestamp _timestampRaw, ) = disputeGameFactory.gameAtIndex(
-                gameCount - window
-            );
-
-            // Unwrap gameCreationTime to uint64
-            uint64 _timestamp = _timestampRaw.raw();
-
-            if (_timestamp <= maxTimestamp) {
-                return (gameCount - window, gameCount - (window >> 1) - 1);
-            }
-
-            window <<= 1;
-        }
-
-        // In case search bound has expanded larger than the total dispute game
-        {
-            (, Timestamp _timestampRaw, ) = disputeGameFactory.gameAtIndex(0);
-
-            // Unwrap gameCreationTime to uint64
-            uint64 _timestamp = _timestampRaw.raw();
-
-            if (_timestamp > maxTimestamp) {
-                revert GameNotFound(block.timestamp - maxTimestamp);
-            }
-
-            return (0, gameCount - (window >> 1) - 1);
-        }
-    }
-
-    /**
      * @notice Finds the start index for searching based on the maximum timestamp.
      * @param disputeGameFactory The dispute game factory.
      * @param maxTimestamp The maximum timestamp to search.
@@ -237,13 +245,20 @@ library DisputeGameLookup {
         IDisputeGameFactory disputeGameFactory,
         uint256 maxTimestamp
     ) internal view returns (uint256) {
-        (uint256 lo, uint256 hi) = _findSearchBound(
-            disputeGameFactory,
-            maxTimestamp
-        );
+        uint256 lo = 0;
+        uint256 hi = disputeGameFactory.gameCount() - 1;
 
         while (lo <= hi) {
-            uint256 mid = (lo + hi) / 2;
+            (, Timestamp _timestampLo, ) = disputeGameFactory.gameAtIndex(lo);
+            (, Timestamp _timestampHi, ) = disputeGameFactory.gameAtIndex(hi);
+
+            // If lower bound exceed max timestamp, return previous mid (lo - 1)
+            if (_timestampLo.raw() > maxTimestamp) return lo - 1;
+
+            // Interpolation search
+            uint256 mid = lo +
+                ((maxTimestamp - _timestampLo.raw()) * (hi - lo)) /
+                (_timestampHi.raw() - _timestampLo.raw());
 
             (, Timestamp _timestampRaw, ) = disputeGameFactory.gameAtIndex(mid);
 
@@ -303,11 +318,28 @@ library DisputeGameLookup {
             revert GameNotFound(minAge);
         }
 
+        // In case of an invalid game is found
+        while (true) {
+            (, , address p) = games[0].metadata.unpack();
+            if (_isGameInvalid(IDisputeGame(p))) {
+                if (games[0].index == 0) {
+                    revert GameNotFound(minAge);
+                }
+                games = disputeGameFactory.findLatestGames(
+                    gameType,
+                    games[0].index - 1,
+                    1
+                );
+            } else {
+                break;
+            }
+        }
+
         disputeGameIndex = games[0].index;
         outputRoot = games[0].rootClaim.raw();
         gameCreationTime = games[0].timestamp.raw();
 
-        if (maxAge > 0 && gameCreationTime < block.timestamp - maxAge) {
+        if (maxAge > 0 && gameCreationTime + maxAge < block.timestamp) {
             revert GameExpired(
                 disputeGameIndex,
                 block.timestamp - maxAge,

@@ -34,7 +34,7 @@ $ forge build
 ### Test
 
 ```shell
-$ forge test
+$ forge test --fork-url [ETH_MAINNET_RPC] --fork-block-number 20470857
 ```
 
 ### Format

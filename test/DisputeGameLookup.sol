@@ -6,6 +6,8 @@ import "@eth-optimism/contracts-bedrock/src/dispute/interfaces/IDisputeGameFacto
 import "@eth-optimism/contracts-bedrock/src/dispute/interfaces/IFaultDisputeGame.sol";
 import {OPOutputLookup, IOptimismPortalOutputRoot, DisputeGameLookup} from "../src/OPOutputLookup.sol";
 
+// IMPORTANT: Must test on ETH Mainnet fork block 20516888
+
 address constant OPTIMISM_PORTAL_ADDRESS = 0xbEb5Fc579115071764c7423A4f12eDde41f106Ed;
 
 contract DisputeGameLookupTest is Test {
@@ -16,12 +18,14 @@ contract DisputeGameLookupTest is Test {
         lookup = new OPOutputLookup();
 
         // OP Mainnet DisputeGameFactory
-        disputeGameFactory = IDisputeGameFactory(0xe5965Ab5962eDc7477C8520243A95517CD252fA9);
+        disputeGameFactory = IDisputeGameFactory(
+            0xe5965Ab5962eDc7477C8520243A95517CD252fA9
+        );
     }
 
     function test_getLatestRespectedDisputeGame(uint256 minAge) public {
-        vm.assume(minAge < 7000);
-        
+        vm.assume(minAge <= 7600000);
+
         (
             uint256 disputeGameIndex,
             bytes32 outputRoot,
@@ -30,12 +34,16 @@ contract DisputeGameLookupTest is Test {
             IDisputeGame proxy,
             GameType gameType
         ) = lookup.getLatestRespectedDisputeGame(
-            IOptimismPortalOutputRoot(OPTIMISM_PORTAL_ADDRESS),
-            minAge,
-            1000000000000000000
-        );
+                IOptimismPortalOutputRoot(OPTIMISM_PORTAL_ADDRESS),
+                minAge,
+                1000000000000000000
+            );
 
-        (GameType gameType_, Timestamp timestamp_, IDisputeGame proxy_) = disputeGameFactory.gameAtIndex(disputeGameIndex);
+        (
+            GameType gameType_,
+            Timestamp timestamp_,
+            IDisputeGame proxy_
+        ) = disputeGameFactory.gameAtIndex(disputeGameIndex);
 
         assertEq(gameType_.raw(), gameType.raw());
         assertEq(timestamp_.raw(), gameCreationTime);
@@ -50,7 +58,11 @@ contract DisputeGameLookupTest is Test {
         assertEq(blockNumber_, blockNumber);
 
         assertLe(gameCreationTime, block.timestamp - minAge);
-        assertLe(block.timestamp - minAge - gameCreationTime, 3700);
+
+        // At minAge > 5000000 there are delays in the official dispute game submission
+        if (minAge <= 5000000) {
+            assertLe(block.timestamp - minAge - gameCreationTime, 10000);
+        }
     }
 
     function test_minAgeTooLong() public {
@@ -105,6 +117,101 @@ contract DisputeGameLookupTest is Test {
             IOptimismPortalOutputRoot(OPTIMISM_PORTAL_ADDRESS),
             minAge,
             maxAge
+        );
+    }
+
+    function test_getDisputeGame(uint256 minAge) public {
+        vm.assume(minAge <= 7600000);
+
+        (uint256 disputeGameIndex, , , , , ) = lookup
+            .getLatestRespectedDisputeGame(
+                IOptimismPortalOutputRoot(OPTIMISM_PORTAL_ADDRESS),
+                minAge,
+                1000000000000000000
+            );
+
+        (
+            bytes32 outputRoot,
+            GameType gameType,
+            uint64 gameCreationTime,
+            IDisputeGame proxy
+        ) = lookup.getRespectedDisputeGame(
+                IOptimismPortalOutputRoot(OPTIMISM_PORTAL_ADDRESS),
+                disputeGameIndex,
+                minAge,
+                1000000000000000000
+            );
+
+        (
+            GameType gameType_,
+            Timestamp timestamp_,
+            IDisputeGame proxy_
+        ) = disputeGameFactory.gameAtIndex(disputeGameIndex);
+
+        assertEq(gameType_.raw(), gameType.raw());
+        assertEq(timestamp_.raw(), gameCreationTime);
+        assertEq(address(proxy_), address(proxy));
+
+        IFaultDisputeGame faultDisputeGame = IFaultDisputeGame(address(proxy));
+
+        bytes32 outputRoot_ = faultDisputeGame.rootClaim().raw();
+
+        assertEq(outputRoot_, outputRoot);
+
+        assertLe(gameCreationTime, block.timestamp - minAge);
+    }
+
+    function test_getDisputeGameTooEarly(uint256 minAge) public {
+        vm.assume(minAge <= 5000000);
+
+        (uint256 disputeGameIndex, , uint64 gameCreationTime, , , ) = lookup
+            .getLatestRespectedDisputeGame(
+                IOptimismPortalOutputRoot(OPTIMISM_PORTAL_ADDRESS),
+                minAge,
+                1000000000000000000
+            );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DisputeGameLookup.GameTooEarly.selector,
+                disputeGameIndex,
+                block.timestamp - gameCreationTime,
+                minAge + 10000
+            )
+        );
+
+        lookup.getRespectedDisputeGame(
+            IOptimismPortalOutputRoot(OPTIMISM_PORTAL_ADDRESS),
+            disputeGameIndex,
+            minAge + 10000,
+            1000000000000000000
+        );
+    }
+
+    function test_getDisputeGameExpired(uint256 minAge) public {
+        vm.assume(minAge > 10000 && minAge <= 5000000);
+
+        (uint256 disputeGameIndex, , uint64 gameCreationTime, , , ) = lookup
+            .getLatestRespectedDisputeGame(
+                IOptimismPortalOutputRoot(OPTIMISM_PORTAL_ADDRESS),
+                minAge,
+                1000000000000000000
+            );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DisputeGameLookup.GameExpired.selector,
+                disputeGameIndex,
+                block.timestamp - gameCreationTime,
+                minAge - 10000
+            )
+        );
+
+        lookup.getRespectedDisputeGame(
+            IOptimismPortalOutputRoot(OPTIMISM_PORTAL_ADDRESS),
+            disputeGameIndex,
+            0,
+            minAge - 10000
         );
     }
 }

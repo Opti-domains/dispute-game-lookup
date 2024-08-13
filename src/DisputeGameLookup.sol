@@ -256,9 +256,16 @@ library DisputeGameLookup {
             if (_timestampLo.raw() > maxTimestamp) return lo - 1;
 
             // Interpolation search
-            uint256 mid = lo +
-                ((maxTimestamp - _timestampLo.raw()) * (hi - lo)) /
-                (_timestampHi.raw() - _timestampLo.raw());
+            uint256 mid = _timestampHi.raw() <= _timestampLo.raw()
+                ? lo
+                : lo +
+                    ((maxTimestamp - _timestampLo.raw()) * (hi - lo)) /
+                    (_timestampHi.raw() - _timestampLo.raw());
+
+            // Rounding error
+            if (mid > hi) {
+                mid = hi;
+            }
 
             (, Timestamp _timestampRaw, ) = disputeGameFactory.gameAtIndex(mid);
 

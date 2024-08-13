@@ -349,7 +349,7 @@ library DisputeGameLookup {
         if (maxAge > 0 && gameCreationTime + maxAge < block.timestamp) {
             revert GameExpired(
                 disputeGameIndex,
-                block.timestamp - maxAge,
+                block.timestamp - gameCreationTime,
                 maxAge
             );
         }

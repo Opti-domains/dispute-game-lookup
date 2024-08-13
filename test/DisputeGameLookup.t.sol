@@ -70,6 +70,7 @@ contract DisputeGameLookupTest is Test {
         // Because either minAge > block.timestamp
         // Or the first dispute game timestamp > maxTimestamp
         // As a result, _findSearchStart return (lo - 1) = 0 - 1
+        // Not worth to handle seperately for this rarely used case
         vm.expectRevert();
 
         lookup.getLatestRespectedDisputeGame(
@@ -83,11 +84,15 @@ contract DisputeGameLookupTest is Test {
         uint256 maxAge = 100;
         uint256 disputeGameIndex = disputeGameFactory.gameCount() - 1;
 
+        (, Timestamp timestamp_, ) = disputeGameFactory.gameAtIndex(
+            disputeGameIndex
+        );
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 DisputeGameLookup.GameExpired.selector,
                 disputeGameIndex,
-                block.timestamp - maxAge,
+                block.timestamp - timestamp_.raw(),
                 maxAge
             )
         );
@@ -104,11 +109,15 @@ contract DisputeGameLookupTest is Test {
         uint256 maxAge = 4000;
         uint256 disputeGameIndex = disputeGameFactory.gameCount() - 2;
 
+        (, Timestamp timestamp_, ) = disputeGameFactory.gameAtIndex(
+            disputeGameIndex
+        );
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 DisputeGameLookup.GameExpired.selector,
                 disputeGameIndex,
-                block.timestamp - maxAge,
+                block.timestamp - timestamp_.raw(),
                 maxAge
             )
         );

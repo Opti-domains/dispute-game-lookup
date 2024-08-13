@@ -66,35 +66,53 @@ library L2OutputOracleLookup {
         IOptimismPortalOutputRoot optimismPortal,
         uint256 minAge,
         uint256 maxAge
-    ) internal view returns (uint256 index, Types.OutputProposal memory) {
+    ) internal view returns (uint256, Types.OutputProposal memory) {
         IL2OutputOracle oracle = _l2OutputOracle(optimismPortal);
-        uint256 length = oracle.latestOutputIndex();
+
+        uint256 lo = 0;
+        uint256 hi = oracle.latestOutputIndex();
 
         uint256 maxTimestamp = block.timestamp - minAge;
         uint256 minTimestamp = block.timestamp - maxAge;
 
-        // Perform a reverse linear search since we only use recent output most of the time.
-        for (uint256 i = length; i >= 0 && i <= length; ) {
-            Types.OutputProposal memory output = oracle.getL2Output(i);
+        while (lo <= hi) {
+            uint256 timestampLo = oracle.getL2Output(lo).timestamp;
+            uint256 timestampHi = oracle.getL2Output(hi).timestamp;
 
-            if (output.timestamp <= maxTimestamp) {
-                if (maxAge == 0 || output.timestamp >= minTimestamp) {
-                    return (i, output);
-                } else {
-                    revert OutputExpired(
-                        i,
-                        block.timestamp - output.timestamp,
-                        maxAge
-                    );
-                }
+            // If lower bound exceed max timestamp, return previous mid (lo - 1)
+            if (timestampLo > maxTimestamp) {
+                hi = lo - 1;
+                break;
             }
 
-            unchecked {
-                i--;
+            // Interpolation search
+            uint256 mid = timestampHi <= timestampLo
+                ? lo
+                : lo +
+                    ((maxTimestamp - timestampLo) * (hi - lo)) /
+                    (timestampHi - timestampLo);
+
+            // Rounding error
+            if (mid > hi) {
+                mid = hi;
+            }
+
+            uint256 timestampMid = oracle.getL2Output(mid).timestamp;
+
+            if (timestampMid <= maxTimestamp) {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
             }
         }
 
-        revert OutputNotFound(minAge);
+        Types.OutputProposal memory output = oracle.getL2Output(hi);
+
+        if (output.timestamp < minTimestamp) {
+            revert OutputNotFound(minAge);
+        }
+        
+        return (hi, output);
     }
 
     /**

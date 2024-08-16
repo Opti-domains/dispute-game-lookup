@@ -10,7 +10,7 @@ import {IL2OutputOracle, IOptimismPortalOutputRoot, Types} from "../src/interfac
 // Mode Mainnet OptimismPortalProxy
 address constant OPTIMISM_PORTAL_ADDRESS = 0x8B34b14c7c7123459Cf3076b8Cb929BE097d0C07;
 
-contract L2OutputLookupTest is Test {
+contract L2OutputOracleLookupTest is Test {
     OPOutputLookup public lookup;
     IL2OutputOracle public oracle;
 

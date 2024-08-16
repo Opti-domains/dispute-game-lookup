@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.26;
 
 import "./DisputeGameLookup.sol";
 import "./L2OutputOracleLookup.sol";

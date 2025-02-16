@@ -1,7 +1,0 @@
-{
-  "name": "@optidomains/dispute-game-lookup",
-  "description": "Optimism's latest Dispute Game lookup library. Specifically designed for the Optimism ENS Gateway but can also be used more generally.",
-  "author": "optidomains",
-  "version": "1.0.1",
-  "license": "MIT"
-}
